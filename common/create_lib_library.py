@@ -121,7 +121,7 @@ def create_lib_library(destlibdir, destlib, do_compile_only=False, excludelist=[
                     print('Error: File ' + lfile + ' not found (skipping).')
                     continue
                 if compressed:
-                    with gzip.open(lfile, 'rb') as ifile:
+                    with gzip.open(lfile, 'rt') as ifile:
                         # print('Adding ' + lfile + ' to library.')
                         ltext = ifile.read()
                 else:
@@ -129,6 +129,11 @@ def create_lib_library(destlibdir, destlib, do_compile_only=False, excludelist=[
                         # print('Adding ' + lfile + ' to library.')
                         ltext = ifile.read()
                 llines = ltext.splitlines()
+                # Remove the closing brace of the library group from each file
+                while llines and llines[-1].strip() == '':
+                    llines.pop()
+                if llines and llines[-1].strip() == '}':
+                    llines.pop()
                 headerseen = False
                 for lline in llines:
                     if headerdone:
@@ -142,12 +147,11 @@ def create_lib_library(destlibdir, destlib, do_compile_only=False, excludelist=[
                 headerdone = True
                 print('/*--------EOF---------*/\n', file=ofile)
 
-            if headerfile:
-                # Finish the header file
-                print('}', file=ofile)
+            # Close the library group
+            print('}', file=ofile)
 
         if do_compile_only == True:
-            print('Compile-only:  Removing individual LEF files')
+            print('Compile-only:  Removing individual liberty files')
             for lfile in llist:
                 if os.path.isfile(lfile):
                     os.remove(lfile)
@@ -178,19 +182,19 @@ if __name__ == '__main__':
         if option.find('-', 0) == 0:
             keyval = option[1:].split('=')
             if keyval[0] == 'compile-only':
-                if len(keyval) > 0:
-                    if keyval[1].tolower() == 'true' or keyval[1].tolower() == 'yes' or keyval[1] == '1':
+                if len(keyval) > 1:
+                    if keyval[1].lower() == 'true' or keyval[1].lower() == 'yes' or keyval[1] == '1':
                         do_compile_only = True
                 else:
                     do_compile_only = True
-            elif keyval[1] == 'exclude' or key == 'excludelist':
-                if len(keyval) > 0:
-                    excludelist = keyval[1].trim('"').split(',')
+            elif keyval[0] == 'exclude' or keyval[0] == 'excludelist':
+                if len(keyval) > 1:
+                    excludelist = keyval[1].strip('"').split(',')
                 else:
                     print("No items in exclude list (ignoring).")
             elif keyval[0] == 'header':
-                if len(keyval) > 0:
-                    headerfile = keyval[1].trim('"')
+                if len(keyval) > 1:
+                    headerfile = keyval[1].strip('"')
                 else:
                     print("No value for header file (ignoring).")
             else:
@@ -198,21 +202,20 @@ if __name__ == '__main__':
         else:
             argumentlist.append(option)
 
-    if len(argumentlist) < 3: 
+    if len(argumentlist) < 2: 
         print("Not enough arguments given to create_lib_library.py.")
         usage()
         sys.exit(1)
 
     destlibdir = argumentlist[0]
     destlib = argumentlist[1]
-    startup_script = argumentlist[2]
 
     print('')
     print('Create liberty library from files:')
     print('')
     print('Path to files: ' + destlibdir)
     print('Name of compiled library: ' + destlib + '.lib')
-    print('Remove individual files: ' + 'Yes' if do_compile_only else 'No')
+    print('Remove individual files: ' + ('Yes' if do_compile_only else 'No'))
     if len(excludelist) > 0:
         print('List of files to exclude: ')
         for file in excludelist:
